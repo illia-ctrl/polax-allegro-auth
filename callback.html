@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Authorizing…</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; max-width: 560px; margin: 64px auto; padding: 0 16px; }
+    .card { border: 1px solid #e3e3e3; border-radius: 12px; padding: 24px; }
+    .ok { color: #0a7d28; } .err { color: #b00020; }
+    a { color: inherit; }
+  </style>
+</head>
+<body>
+  <div class="card" id="card"><h2>Authorizing…</h2><p id="msg">Exchanging the authorization code…</p></div>
+
+  <script src="config.js"></script>
+  <script>
+    (async function () {
+      const card = document.getElementById("card");
+      const msg = document.getElementById("msg");
+      const cfg = window.ALLEGRO_CONFIG;
+      const q = new URLSearchParams(location.search);
+
+      function show(title, text, cls) {
+        card.innerHTML = "<h2 class='" + cls + "'>" + title + "</h2><p>" + text +
+          "</p><p><a href='index.html'>&larr; Back to all stores</a></p>";
+      }
+
+      const error = q.get("error");
+      if (error) return show("Authorization error", error + " " + (q.get("error_description") || ""), "err");
+
+      const code = q.get("code");
+      const state = q.get("state");
+      const verifier = sessionStorage.getItem("pkce_verifier");
+      const savedState = sessionStorage.getItem("pkce_state");
+      const store = sessionStorage.getItem("pkce_store");
+
+      if (!code) return show("Authorization error", "Missing code in callback.", "err");
+      if (!verifier || !store) return show("Authorization error", "Missing PKCE session — start again from the home page.", "err");
+      if (state !== savedState) return show("Authorization error", "State mismatch (possible CSRF).", "err");
+
+      try {
+        const res = await fetch(cfg.backendUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ store, code, code_verifier: verifier }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+
+        sessionStorage.removeItem("pkce_verifier");
+        sessionStorage.removeItem("pkce_state");
+        sessionStorage.removeItem("pkce_store");
+        show("&#10003; " + store + " authorized", "Refresh token saved to the private repo automatically.", "ok");
+      } catch (e) {
+        show("Authorization error", "Backend exchange failed: " + e.message, "err");
+      }
+    })();
+  </script>
+</body>
+</html>
