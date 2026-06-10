@@ -14,13 +14,12 @@
   </style>
 </head>
 <body>
-  <div class="card" id="card"><h2>Authorizing…</h2><p id="msg">Exchanging the authorization code…</p></div>
+  <div class="card" id="card"><h2>Authorizing…</h2><p id="msg">Triggering the token exchange…</p></div>
 
   <script src="config.js"></script>
   <script>
     (async function () {
       const card = document.getElementById("card");
-      const msg = document.getElementById("msg");
       const cfg = window.ALLEGRO_CONFIG;
       const q = new URLSearchParams(location.search);
 
@@ -37,26 +36,42 @@
       const verifier = sessionStorage.getItem("pkce_verifier");
       const savedState = sessionStorage.getItem("pkce_state");
       const store = sessionStorage.getItem("pkce_store");
+      const pat = sessionStorage.getItem("github_pat");
 
       if (!code) return show("Authorization error", "Missing code in callback.", "err");
       if (!verifier || !store) return show("Authorization error", "Missing PKCE session — start again from the home page.", "err");
       if (state !== savedState) return show("Authorization error", "State mismatch (possible CSRF).", "err");
+      if (!pat) return show("Authorization error", "Missing GitHub token — go back and paste it, then retry.", "err");
 
       try {
-        const res = await fetch(cfg.backendUrl, {
+        const res = await fetch("https://api.github.com/repos/" + cfg.dispatchRepo + "/dispatches", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ store, code, code_verifier: verifier }),
+          headers: {
+            "Authorization": "Bearer " + pat,
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": "2022-11-28",
+          },
+          body: JSON.stringify({
+            event_type: cfg.eventType,
+            client_payload: { store: store, code: code, code_verifier: verifier },
+          }),
         });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
 
-        sessionStorage.removeItem("pkce_verifier");
-        sessionStorage.removeItem("pkce_state");
-        sessionStorage.removeItem("pkce_store");
-        show("&#10003; " + store + " authorized", "Refresh token saved to the private repo automatically.", "ok");
+        if (res.status === 204) {
+          sessionStorage.removeItem("pkce_verifier");
+          sessionStorage.removeItem("pkce_state");
+          sessionStorage.removeItem("pkce_store");
+          show("&#10003; " + store + " authorized",
+            "GitHub Actions is exchanging the code and saving the refresh token to <code>tokens/" + store +
+            ".json</code> in the private repo (about 30 seconds).", "ok");
+        } else {
+          const data = await res.json().catch(() => ({}));
+          show("Authorization error", "GitHub dispatch failed (HTTP " + res.status + "): " +
+            (data.message || "check the token's permissions (Contents: write)."), "err");
+        }
       } catch (e) {
-        show("Authorization error", "Backend exchange failed: " + e.message, "err");
+        show("Authorization error", "Could not reach GitHub: " + e.message, "err");
       }
     })();
   </script>

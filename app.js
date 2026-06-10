@@ -1,4 +1,4 @@
-// PKCE helpers + flow start. Runs entirely in the browser, no secret involved.
+// PKCE helpers + flow start. Runs entirely in the browser, no Allegro secret.
 
 function base64url(bytes) {
   let s = btoa(String.fromCharCode.apply(null, bytes));
@@ -23,6 +23,13 @@ async function startAuth(store) {
   const s = cfg.stores.find((x) => x.key === store);
   if (!s) throw new Error("Unknown store " + store);
 
+  const pat = (document.getElementById("pat") || {}).value || sessionStorage.getItem("github_pat");
+  if (!pat) {
+    alert("Paste your GitHub token first — it is needed to store the token via GitHub Actions.");
+    return;
+  }
+  sessionStorage.setItem("github_pat", pat);
+
   const verifier = randomVerifier();
   const challenge = await challengeFor(verifier);
   const state = randomVerifier(); // reuse as CSRF nonce
@@ -42,8 +49,8 @@ async function startAuth(store) {
   window.location.assign(url.toString());
 }
 
-// Render the store buttons on the home page.
-function renderStores() {
+// Render the store buttons + wire up the PAT field.
+function init() {
   const cfg = window.ALLEGRO_CONFIG;
   const root = document.getElementById("stores");
   cfg.stores.forEach((s) => {
@@ -60,6 +67,17 @@ function renderStores() {
     row.appendChild(btn);
     root.appendChild(row);
   });
+
+  const patInput = document.getElementById("pat");
+  const saved = document.getElementById("patSaved");
+  if (patInput) {
+    const existing = sessionStorage.getItem("github_pat");
+    if (existing) { patInput.value = existing; if (saved) saved.style.display = "block"; }
+    patInput.addEventListener("input", () => {
+      sessionStorage.setItem("github_pat", patInput.value.trim());
+      if (saved) saved.style.display = patInput.value ? "block" : "none";
+    });
+  }
 }
 
-window.AllegroAuth = { startAuth, renderStores };
+window.AllegroAuth = { startAuth, init };
