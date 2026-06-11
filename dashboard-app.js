@@ -56,6 +56,40 @@ $("lock").addEventListener("click", () => {
   location.reload();
 });
 
+// "Refresh now" — trigger the GitHub Action that re-pulls all three stores,
+// then poll until the data changes and reload. Needs a Contents: write token.
+const REFRESH_EVENT = "refresh-dashboard";
+const setStatus = (msg) => { const el = $("status"); if (el) el.textContent = msg; };
+$("refresh").addEventListener("click", async () => {
+  const token = localStorage.getItem(CONFIG.tokenKey) || sessionStorage.getItem(CONFIG.tokenKey);
+  if (!token) { setStatus("Load with a token first."); return; }
+  const btn = $("refresh");
+  btn.disabled = true;
+  const before = D ? D.generated : null;
+  setStatus("Starting refresh…");
+  try {
+    const r = await fetch(`https://api.github.com/repos/${CONFIG.repo}/dispatches`, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "Content-Type": "application/json", "X-GitHub-Api-Version": "2022-11-28" },
+      body: JSON.stringify({ event_type: REFRESH_EVENT }),
+    });
+    if (r.status === 403 || r.status === 404) { setStatus("This token can't trigger refresh — it needs Contents: Read and write."); btn.disabled = false; return; }
+    if (r.status !== 204) { setStatus("Could not start refresh (HTTP " + r.status + ")."); btn.disabled = false; return; }
+  } catch (e) { setStatus("Network error: " + e.message); btn.disabled = false; return; }
+
+  setStatus("Refreshing from Allegro… ~2–3 min. The page reloads automatically when ready.");
+  const start = Date.now();
+  const poll = async () => {
+    try {
+      const fresh = await fetchData(token);
+      if (fresh.generated && fresh.generated !== before) { setStatus("Updated ✓ reloading…"); location.reload(); return; }
+    } catch { /* keep waiting */ }
+    if (Date.now() - start > 6 * 60 * 1000) { setStatus("Still running — try reloading in a minute."); btn.disabled = false; return; }
+    setTimeout(poll, 20000);
+  };
+  setTimeout(poll, 30000);
+});
+
 // auto-load if a token is already stored
 (async function boot() {
   const token = localStorage.getItem(CONFIG.tokenKey) || sessionStorage.getItem(CONFIG.tokenKey);
