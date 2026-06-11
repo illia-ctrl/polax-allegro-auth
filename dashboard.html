@@ -49,7 +49,8 @@
     th { position: sticky; top: 0; background: Canvas; cursor: pointer; user-select: none; white-space: nowrap; }
     td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     .name { max-width: 360px; }
-    .ean { font-family: ui-monospace, monospace; color: var(--muted); font-size: 12px; }
+    .ean, .sku { font-family: ui-monospace, monospace; color: var(--muted); font-size: 12px; }
+    .warn { color: #d97706; cursor: help; }
     .where span { display: inline-block; width: 20px; text-align: center; font-size: 11px; font-weight: 700; border-radius: 5px; margin-right: 2px; }
     .where .on-polax { background: color-mix(in srgb, var(--polax) 20%, transparent); color: var(--polax); }
     .where .on-mlot { background: color-mix(in srgb, var(--mlot) 20%, transparent); color: var(--mlot); }
@@ -77,7 +78,7 @@
   <!-- APP -->
   <div id="app" class="hidden">
     <div class="topbar">
-      <h1>Allegro stores — 3-way comparison <span class="badge" style="background:color-mix(in srgb,#16a34a 18%,transparent);color:#16a34a">private</span></h1>
+      <h1>Allegro stores — 3-way comparison <span class="badge" style="background:color-mix(in srgb,#16a34a 18%,transparent);color:#16a34a">matched by SKU · private</span></h1>
       <button class="lock" id="lock">🔒 Lock / clear token</button>
     </div>
     <div class="gen" id="gen"></div>
@@ -95,6 +96,7 @@
       <thead>
         <tr>
           <th data-sort="name" class="name">Product</th>
+          <th data-sort="sku">SKU</th>
           <th data-sort="ean">EAN</th>
           <th data-sort="count">Where</th>
           <th data-sort="polaxPrice" class="num">Polax zł</th>

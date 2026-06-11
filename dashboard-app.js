@@ -66,13 +66,13 @@ $("lock").addEventListener("click", () => {
 
 // ---------- UI (same view as the local dashboard) ----------
 function initUI() {
-  $("gen").textContent = "Loaded " + new Date(D.generated).toLocaleString() + " · from " + CONFIG.repo + " · matched by EAN";
+  $("gen").textContent = "Loaded " + new Date(D.generated).toLocaleString() + " · from " + CONFIG.repo + " · matched by " + (D.matchKey || "SKU") + " (EAN shown for reference)";
 
   const c = D.counts;
   $("cards").innerHTML = `
-    <div class="card polax"><h3>${SM.polax.name}</h3><div class="big">${SM.polax.offers}</div><div class="sub">${SM.polax.eans} unique EANs</div></div>
-    <div class="card mlot"><h3>${SM.mlot.name}</h3><div class="big">${SM.mlot.offers}</div><div class="sub">${SM.mlot.eans} unique EANs</div></div>
-    <div class="card sila"><h3>${SM.sila.name}</h3><div class="big">${SM.sila.offers}</div><div class="sub">${SM.sila.eans} unique EANs</div></div>
+    <div class="card polax"><h3>${SM.polax.name}</h3><div class="big">${SM.polax.offers}</div><div class="sub">${SM.polax.skus} unique SKUs</div></div>
+    <div class="card mlot"><h3>${SM.mlot.name}</h3><div class="big">${SM.mlot.offers}</div><div class="sub">${SM.mlot.skus} unique SKUs</div></div>
+    <div class="card sila"><h3>${SM.sila.name}</h3><div class="big">${SM.sila.offers}</div><div class="sub">${SM.sila.skus} unique SKUs</div></div>
     <div class="card"><h3>In all three</h3><div class="big">${c.all3}</div><div class="sub">of ${c.total} total products</div></div>`;
 
   const FILTERS = [
@@ -84,6 +84,7 @@ function initUI() {
     { k: "missing_polax", t: "Missing in Polax (" + c.missing_polax + ")" },
     { k: "missing_mlot", t: "Missing in Mlot (" + c.missing_mlot + ")" },
     { k: "missing_sila", t: "Missing in Sila (" + c.missing_sila + ")" },
+    { k: "ean_mismatch", t: "⚠ EAN differs (" + c.ean_mismatch + ")" },
   ];
   const fEl = $("filters");
   fEl.innerHTML = "";
@@ -100,16 +101,17 @@ function initUI() {
     const k = th.dataset.sort; state.dir = state.sort === k ? -state.dir : 1; state.sort = k; render();
   }));
 
-  const FILTER_LABEL = { all: "All", all3: "In-all-3", only_polax: "Only-Polax", only_mlot: "Only-Mlot", only_sila: "Only-Sila", missing_polax: "Missing-Polax", missing_mlot: "Missing-Mlot", missing_sila: "Missing-Sila" };
+  const FILTER_LABEL = { all: "All", all3: "In-all-3", only_polax: "Only-Polax", only_mlot: "Only-Mlot", only_sila: "Only-Sila", missing_polax: "Missing-Polax", missing_mlot: "Missing-Mlot", missing_sila: "Missing-Sila", ean_mismatch: "EAN-differs" };
   $("dl").addEventListener("click", () => {
     const arr = filtered();
     if (!arr.length) { alert("Nothing to export with the current filters."); return; }
     const yn = (p, id) => (p.present.includes(id) ? "Y" : "N");
     const rows = arr.map((p) => ({
-      EAN: p.ean, Name: p.name, In_Polax: yn(p, "polax"), In_Mlot: yn(p, "mlot"), In_Sila: yn(p, "sila"), Stores: p.count,
-      Polax_SKU: p.stores.polax?.sku ?? "", Polax_Price: p.stores.polax?.price ?? "", Polax_Stock: p.stores.polax?.stock ?? "",
-      Mlot_SKU: p.stores.mlot?.sku ?? "", Mlot_Price: p.stores.mlot?.price ?? "", Mlot_Stock: p.stores.mlot?.stock ?? "",
-      Sila_SKU: p.stores.sila?.sku ?? "", Sila_Price: p.stores.sila?.price ?? "", Sila_Stock: p.stores.sila?.stock ?? "",
+      SKU: p.sku, Name: p.name, EAN: p.ean, EAN_mismatch: p.eanMismatch ? "Y" : "",
+      In_Polax: yn(p, "polax"), In_Mlot: yn(p, "mlot"), In_Sila: yn(p, "sila"), Stores: p.count,
+      Polax_EAN: p.stores.polax?.ean ?? "", Polax_Price: p.stores.polax?.price ?? "", Polax_Stock: p.stores.polax?.stock ?? "",
+      Mlot_EAN: p.stores.mlot?.ean ?? "", Mlot_Price: p.stores.mlot?.price ?? "", Mlot_Stock: p.stores.mlot?.stock ?? "",
+      Sila_EAN: p.stores.sila?.ean ?? "", Sila_Price: p.stores.sila?.price ?? "", Sila_Stock: p.stores.sila?.stock ?? "",
       Price_Spread: p.spread ?? "",
     }));
     const wb = XLSX.utils.book_new();
@@ -129,10 +131,11 @@ const FILTER_FN = {
   missing_polax: (p) => !p.present.includes("polax"),
   missing_mlot: (p) => !p.present.includes("mlot"),
   missing_sila: (p) => !p.present.includes("sila"),
+  ean_mismatch: (p) => p.eanMismatch,
 };
 
 const sortVal = (p, k) => ({
-  name: p.name.toLowerCase(), ean: p.ean, count: p.count,
+  name: p.name.toLowerCase(), sku: p.sku, ean: p.ean, count: p.count,
   polaxPrice: p.stores.polax?.price ?? -1, polaxStock: p.stores.polax?.stock ?? -1,
   mlotPrice: p.stores.mlot?.price ?? -1, mlotStock: p.stores.mlot?.stock ?? -1,
   silaPrice: p.stores.sila?.price ?? -1, silaStock: p.stores.sila?.stock ?? -1,
@@ -142,8 +145,8 @@ const sortVal = (p, k) => ({
 function filtered() {
   let arr = D.products.filter(FILTER_FN[state.filter]);
   if (state.q) arr = arr.filter((p) =>
-    p.name.toLowerCase().includes(state.q) || p.ean.includes(state.q) ||
-    ["polax", "mlot", "sila"].some((id) => (p.stores[id]?.sku || "").toLowerCase().includes(state.q)));
+    p.name.toLowerCase().includes(state.q) || (p.sku || "").toLowerCase().includes(state.q) ||
+    p.eans.some((e) => e.includes(state.q)));
   return arr.slice().sort((a, b) => { const x = sortVal(a, state.sort), y = sortVal(b, state.sort); return (x < y ? -1 : x > y ? 1 : 0) * state.dir; });
 }
 
@@ -151,6 +154,9 @@ const money = (o) => o && o.price != null ? o.price.toFixed(2) : '<span class="d
 const stk = (o) => o && o.stock != null ? o.stock : '<span class="dash">—</span>';
 const where = (p) => ["polax", "mlot", "sila"].map((id) =>
   p.present.includes(id) ? `<span class="on-${id}">${id[0].toUpperCase()}</span>` : `<span class="off">${id[0].toUpperCase()}</span>`).join("");
+const eanCell = (p) => p.ean
+  ? p.ean + (p.eanMismatch ? ` <span class="warn" title="EANs differ across stores: ${p.eans.join(", ")}">⚠</span>` : "")
+  : '<span class="dash">—</span>';
 const link = (p) => {
   const o = p.stores.polax || p.stores.mlot || p.stores.sila;
   return o ? `<a href="https://allegro.pl/oferta/${o.offerId}" target="_blank" rel="noopener">${p.name}</a>` : p.name;
@@ -165,7 +171,8 @@ function render() {
   $("meta").textContent = `${arr.length} products · page ${state.page}/${pages}`;
   $("rows").innerHTML = slice.map((p) => `<tr>
     <td class="name">${link(p)}</td>
-    <td class="ean">${p.ean}</td>
+    <td class="sku">${p.sku}</td>
+    <td class="ean">${eanCell(p)}</td>
     <td class="where">${where(p)}</td>
     <td class="num">${money(p.stores.polax)}</td><td class="num">${stk(p.stores.polax)}</td>
     <td class="num">${money(p.stores.mlot)}</td><td class="num">${stk(p.stores.mlot)}</td>
