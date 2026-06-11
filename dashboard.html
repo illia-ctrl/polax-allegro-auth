@@ -51,6 +51,7 @@
     .name { max-width: 360px; }
     .ean, .sku { font-family: ui-monospace, monospace; color: var(--muted); font-size: 12px; }
     .warn { color: #d97706; cursor: help; }
+    .chip { display: inline-block; font-size: 9.5px; font-weight: 800; padding: 1px 5px; border-radius: 5px; margin: 0 2px 2px 0; cursor: help; letter-spacing: .3px; }
     .where span { display: inline-block; width: 20px; text-align: center; font-size: 11px; font-weight: 700; border-radius: 5px; margin-right: 2px; }
     .where .on-polax { background: color-mix(in srgb, var(--polax) 20%, transparent); color: var(--polax); }
     .where .on-mlot { background: color-mix(in srgb, var(--mlot) 20%, transparent); color: var(--mlot); }
@@ -97,6 +98,7 @@
         <tr>
           <th data-sort="name" class="name">Product</th>
           <th data-sort="sku">SKU</th>
+          <th data-sort="issues">⚠</th>
           <th data-sort="ean">EAN</th>
           <th data-sort="count">Where</th>
           <th data-sort="polaxPrice" class="num">Polax zł</th>

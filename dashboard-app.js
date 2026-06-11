@@ -84,7 +84,11 @@ function initUI() {
     { k: "missing_polax", t: "Missing in Polax (" + c.missing_polax + ")" },
     { k: "missing_mlot", t: "Missing in Mlot (" + c.missing_mlot + ")" },
     { k: "missing_sila", t: "Missing in Sila (" + c.missing_sila + ")" },
-    { k: "ean_mismatch", t: "⚠ EAN differs (" + c.ean_mismatch + ")" },
+    { k: "issues_any", t: "⚠ Problematic (" + c.issues_any + ")" },
+    { k: "issue_dup", t: "DUP SKU (" + c.issue_dup + ")" },
+    { k: "issue_ean", t: "EAN differs (" + c.issue_ean + ")" },
+    { k: "issue_name", t: "Name conflict (" + c.issue_name + ")" },
+    { k: "issue_pid", t: "Catalog split (" + c.issue_pid + ")" },
   ];
   const fEl = $("filters");
   fEl.innerHTML = "";
@@ -101,13 +105,13 @@ function initUI() {
     const k = th.dataset.sort; state.dir = state.sort === k ? -state.dir : 1; state.sort = k; render();
   }));
 
-  const FILTER_LABEL = { all: "All", all3: "In-all-3", only_polax: "Only-Polax", only_mlot: "Only-Mlot", only_sila: "Only-Sila", missing_polax: "Missing-Polax", missing_mlot: "Missing-Mlot", missing_sila: "Missing-Sila", ean_mismatch: "EAN-differs" };
+  const FILTER_LABEL = { all: "All", all3: "In-all-3", only_polax: "Only-Polax", only_mlot: "Only-Mlot", only_sila: "Only-Sila", missing_polax: "Missing-Polax", missing_mlot: "Missing-Mlot", missing_sila: "Missing-Sila", issues_any: "Problematic", issue_dup: "Dup-SKU", issue_ean: "EAN-differs", issue_name: "Name-conflict", issue_pid: "Catalog-split" };
   $("dl").addEventListener("click", () => {
     const arr = filtered();
     if (!arr.length) { alert("Nothing to export with the current filters."); return; }
     const yn = (p, id) => (p.present.includes(id) ? "Y" : "N");
     const rows = arr.map((p) => ({
-      SKU: p.sku, Name: p.name, EAN: p.ean, EAN_mismatch: p.eanMismatch ? "Y" : "",
+      SKU: p.sku, Name: p.name, Issues: p.issues.join("|"), EAN: p.ean, EAN_mismatch: p.eanMismatch ? "Y" : "",
       In_Polax: yn(p, "polax"), In_Mlot: yn(p, "mlot"), In_Sila: yn(p, "sila"), Stores: p.count,
       Polax_EAN: p.stores.polax?.ean ?? "", Polax_Price: p.stores.polax?.price ?? "", Polax_Stock: p.stores.polax?.stock ?? "",
       Mlot_EAN: p.stores.mlot?.ean ?? "", Mlot_Price: p.stores.mlot?.price ?? "", Mlot_Stock: p.stores.mlot?.stock ?? "",
@@ -131,11 +135,26 @@ const FILTER_FN = {
   missing_polax: (p) => !p.present.includes("polax"),
   missing_mlot: (p) => !p.present.includes("mlot"),
   missing_sila: (p) => !p.present.includes("sila"),
-  ean_mismatch: (p) => p.eanMismatch,
+  issues_any: (p) => p.issues.length > 0,
+  issue_dup: (p) => p.issues.includes("dup"),
+  issue_ean: (p) => p.issues.includes("ean"),
+  issue_name: (p) => p.issues.includes("name"),
+  issue_pid: (p) => p.issues.includes("pid"),
 };
 
+const ISSUE_META = {
+  dup: { l: "DUP", c: "#dc2626", t: "SKU duplicated within a store" },
+  ean: { l: "EAN", c: "#d97706", t: "EAN differs across stores" },
+  name: { l: "NAME", c: "#7c3aed", t: "Same SKU, different product names" },
+  pid: { l: "PID", c: "#0891b2", t: "Same SKU, different Allegro product.id" },
+};
+const chips = (p) => p.issues.map((code) => {
+  const m = ISSUE_META[code];
+  return `<span class="chip" style="background:${m.c}22;color:${m.c}" title="${m.t}">${m.l}</span>`;
+}).join("") || '<span class="dash">—</span>';
+
 const sortVal = (p, k) => ({
-  name: p.name.toLowerCase(), sku: p.sku, ean: p.ean, count: p.count,
+  name: p.name.toLowerCase(), sku: p.sku, ean: p.ean, count: p.count, issues: p.issues.length,
   polaxPrice: p.stores.polax?.price ?? -1, polaxStock: p.stores.polax?.stock ?? -1,
   mlotPrice: p.stores.mlot?.price ?? -1, mlotStock: p.stores.mlot?.stock ?? -1,
   silaPrice: p.stores.sila?.price ?? -1, silaStock: p.stores.sila?.stock ?? -1,
@@ -172,6 +191,7 @@ function render() {
   $("rows").innerHTML = slice.map((p) => `<tr>
     <td class="name">${link(p)}</td>
     <td class="sku">${p.sku}</td>
+    <td>${chips(p)}</td>
     <td class="ean">${eanCell(p)}</td>
     <td class="where">${where(p)}</td>
     <td class="num">${money(p.stores.polax)}</td><td class="num">${stk(p.stores.polax)}</td>
