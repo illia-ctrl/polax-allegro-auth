@@ -34,6 +34,7 @@
     .card.polax { border-top: 3px solid var(--polax); }
     .card.mlot { border-top: 3px solid var(--mlot); }
     .card.sila { border-top: 3px solid var(--sila); }
+    .legend { font-size: 12px; color: var(--muted); line-height: 1.5; border: 1px dashed var(--line); border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; }
     .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; }
     .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
     .filters { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -90,6 +91,10 @@
     <div class="gen" id="status" style="min-height:16px"></div>
 
     <div class="cards" id="cards"></div>
+    <div class="legend">
+      <b>Product</b> = one unique SKU (the match key). <b>Listings</b> = Allegro offers — a store can list the same SKU more than once (those extras are <i>dup</i>).
+      <b>Total products</b> = distinct SKUs across all three stores. For every store: <b>products present + missing = total</b>. The “Only / Missing / In all 3” filters all count <b>products (SKUs)</b>, never listings.
+    </div>
 
     <div class="controls"><div class="filters" id="filters"></div></div>
     <div class="controls">

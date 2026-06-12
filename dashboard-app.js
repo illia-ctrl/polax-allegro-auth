@@ -103,11 +103,11 @@ function initUI() {
   $("gen").textContent = "Loaded " + new Date(D.generated).toLocaleString() + " · from " + CONFIG.repo + " · matched by " + (D.matchKey || "SKU") + " (EAN shown for reference)";
 
   const c = D.counts;
-  $("cards").innerHTML = `
-    <div class="card polax"><h3>${SM.polax.name}</h3><div class="big">${SM.polax.offers}</div><div class="sub">${SM.polax.skus} unique SKUs</div></div>
-    <div class="card mlot"><h3>${SM.mlot.name}</h3><div class="big">${SM.mlot.offers}</div><div class="sub">${SM.mlot.skus} unique SKUs</div></div>
-    <div class="card sila"><h3>${SM.sila.name}</h3><div class="big">${SM.sila.offers}</div><div class="sub">${SM.sila.skus} unique SKUs</div></div>
-    <div class="card"><h3>In all three</h3><div class="big">${c.all3}</div><div class="sub">of ${c.total} total products</div></div>`;
+  const storeCard = (m, cls) => `<div class="card ${cls}"><h3>${m.name}</h3><div class="big">${m.present}</div>` +
+    `<div class="sub">products · ${m.offers} listings${m.dup ? ` (${m.dup} dup)` : ""} · ${m.missing} missing</div></div>`;
+  $("cards").innerHTML =
+    storeCard(SM.polax, "polax") + storeCard(SM.mlot, "mlot") + storeCard(SM.sila, "sila") +
+    `<div class="card"><h3>Total products</h3><div class="big">${c.total}</div><div class="sub">in all 3: ${c.all3} · in 2: ${c.in2} · in 1: ${c.in1}</div></div>`;
 
   const FILTERS = [
     { k: "all", t: "All (" + c.total + ")" },
