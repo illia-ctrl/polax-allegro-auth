@@ -10,7 +10,7 @@ const CONFIG = {
 const $ = (id) => document.getElementById(id);
 const PAGE = 50;
 let D = null, SM = null;
-let state = { filter: "all", q: "", sort: "name", dir: 1, page: 1 };
+let state = { inStores: [], issues: [], q: "", sort: "name", dir: 1, page: 1 };
 
 // ---------- auth + data loading ----------
 async function fetchData(token) {
@@ -109,37 +109,40 @@ function initUI() {
     storeCard(SM.polax, "polax") + storeCard(SM.mlot, "mlot") + storeCard(SM.sila, "sila") +
     `<div class="card"><h3>Total products</h3><div class="big">${c.total}</div><div class="sub">in all 3: ${c.all3} · in 2: ${c.in2} · in 1: ${c.in1}</div></div>`;
 
-  const FILTERS = [
-    { k: "all", t: "All (" + c.total + ")" },
-    { k: "all3", t: "In all 3 (" + c.all3 + ")" },
-    { k: "only_polax", t: "Only Polax (" + c.only_polax + ")" },
-    { k: "only_mlot", t: "Only Mlot (" + c.only_mlot + ")" },
-    { k: "only_sila", t: "Only Sila (" + c.only_sila + ")" },
-    { k: "missing_polax", t: "Missing in Polax (" + c.missing_polax + ")" },
-    { k: "missing_mlot", t: "Missing in Mlot (" + c.missing_mlot + ")" },
-    { k: "missing_sila", t: "Missing in Sila (" + c.missing_sila + ")" },
-    { k: "issues_any", t: "⚠ Problematic (" + c.issues_any + ")" },
-    { k: "issue_dup", t: "DUP SKU (" + c.issue_dup + ")" },
-    { k: "issue_ean", t: "EAN differs (" + c.issue_ean + ")" },
-    { k: "issue_name", t: "Name conflict (" + c.issue_name + ")" },
-    { k: "issue_pid", t: "Catalog split (" + c.issue_pid + ")" },
-  ];
+  // Multi-select: stores combine as an exact set (in all selected, not in the rest);
+  // issue chips add AND constraints. Click again to deselect.
   const fEl = $("filters");
-  fEl.innerHTML = "";
-  FILTERS.forEach((f) => {
-    const b = document.createElement("button");
-    b.textContent = f.t;
-    b.className = state.filter === f.k ? "active" : "";
-    b.onclick = () => { state.filter = f.k; state.page = 1; [...fEl.children].forEach((x) => x.classList.remove("active")); b.classList.add("active"); render(); };
-    fEl.appendChild(b);
-  });
+  function buildFilters() {
+    fEl.innerHTML = "";
+    STORE_IDS.forEach((id) => {
+      const b = document.createElement("button");
+      b.className = "store-chip"; b.dataset.store = id;
+      const on = () => state.inStores.includes(id);
+      const paint = () => { b.dataset.on = on() ? "1" : "0"; b.textContent = STORE_LABEL[id] + (on() ? " ✓" : ""); };
+      b.onclick = () => { state.inStores = on() ? state.inStores.filter((x) => x !== id) : [...state.inStores, id]; state.page = 1; paint(); render(); };
+      paint(); fEl.appendChild(b);
+    });
+    const sep = document.createElement("span"); sep.className = "sep"; fEl.appendChild(sep);
+    ISSUE_CODES.forEach((code) => {
+      const m = ISSUE_META[code];
+      const b = document.createElement("button");
+      b.className = "issue-chip"; b.title = m.t;
+      const on = () => state.issues.includes(code);
+      const paint = () => { b.classList.toggle("on", on()); b.style.color = on() ? m.c : ""; b.style.borderColor = on() ? m.c : ""; b.textContent = m.l + " (" + c["issue_" + code] + ")"; };
+      b.onclick = () => { state.issues = on() ? state.issues.filter((x) => x !== code) : [...state.issues, code]; state.page = 1; paint(); render(); };
+      paint(); fEl.appendChild(b);
+    });
+    const r = document.createElement("button"); r.className = "reset-btn"; r.textContent = "Reset";
+    r.onclick = () => { state.inStores = []; state.issues = []; state.q = ""; const si = $("search"); if (si) si.value = ""; state.page = 1; buildFilters(); render(); };
+    fEl.appendChild(r);
+  }
+  buildFilters();
 
   $("search").addEventListener("input", (e) => { state.q = e.target.value.trim().toLowerCase(); state.page = 1; render(); });
   document.querySelectorAll("th[data-sort]").forEach((th) => th.addEventListener("click", () => {
     const k = th.dataset.sort; state.dir = state.sort === k ? -state.dir : 1; state.sort = k; render();
   }));
 
-  const FILTER_LABEL = { all: "All", all3: "In-all-3", only_polax: "Only-Polax", only_mlot: "Only-Mlot", only_sila: "Only-Sila", missing_polax: "Missing-Polax", missing_mlot: "Missing-Mlot", missing_sila: "Missing-Sila", issues_any: "Problematic", issue_dup: "Dup-SKU", issue_ean: "EAN-differs", issue_name: "Name-conflict", issue_pid: "Catalog-split" };
   $("dl").addEventListener("click", () => {
     const arr = filtered();
     if (!arr.length) { alert("Nothing to export with the current filters."); return; }
@@ -152,29 +155,38 @@ function initUI() {
       Sila_EAN: p.stores.sila?.ean ?? "", Sila_Price: p.stores.sila?.price ?? "", Sila_Stock: p.stores.sila?.stock ?? "",
       Price_Spread: p.spread ?? "",
     }));
+    const slug = ([state.inStores.map((i) => STORE_LABEL[i]).join("-"), state.issues.join("-"), state.q ? "q_" + state.q.replace(/[^a-z0-9]+/gi, "") : ""].filter(Boolean).join("_") || "All").slice(0, 28);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), (FILTER_LABEL[state.filter] || "Report").slice(0, 31));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), slug.slice(0, 31));
     const stamp = new Date().toISOString().slice(0, 10);
-    const q = state.q ? "-q_" + state.q.replace(/[^a-z0-9]+/gi, "").slice(0, 20) : "";
-    XLSX.writeFile(wb, `Allegro-3way-${FILTER_LABEL[state.filter] || "report"}${q}-${stamp}.xlsx`);
+    XLSX.writeFile(wb, `Allegro-3way-${slug}-${stamp}.xlsx`);
   });
 }
 
-const FILTER_FN = {
-  all: () => true,
-  all3: (p) => p.count === 3,
-  only_polax: (p) => p.count === 1 && p.present[0] === "polax",
-  only_mlot: (p) => p.count === 1 && p.present[0] === "mlot",
-  only_sila: (p) => p.count === 1 && p.present[0] === "sila",
-  missing_polax: (p) => !p.present.includes("polax"),
-  missing_mlot: (p) => !p.present.includes("mlot"),
-  missing_sila: (p) => !p.present.includes("sila"),
-  issues_any: (p) => p.issues.length > 0,
-  issue_dup: (p) => p.issues.includes("dup"),
-  issue_ean: (p) => p.issues.includes("ean"),
-  issue_name: (p) => p.issues.includes("name"),
-  issue_pid: (p) => p.issues.includes("pid"),
-};
+const STORE_IDS = ["polax", "mlot", "sila"], STORE_LABEL = { polax: "Polax", mlot: "Mlot", sila: "Sila" };
+const ISSUE_CODES = ["dup", "ean", "name", "pid"];
+function matches(p) {
+  if (state.inStores.length) {
+    for (const id of STORE_IDS) if (state.inStores.includes(id) !== p.present.includes(id)) return false;
+  }
+  for (const code of state.issues) if (!p.issues.includes(code)) return false;
+  if (state.q) {
+    const q = state.q;
+    if (!(p.name.toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q) || p.eans.some((e) => e.includes(q)))) return false;
+  }
+  return true;
+}
+function describe() {
+  const parts = [];
+  if (state.inStores.length) {
+    parts.push("in " + STORE_IDS.filter((i) => state.inStores.includes(i)).map((i) => STORE_LABEL[i]).join(" + "));
+    const outs = STORE_IDS.filter((i) => !state.inStores.includes(i)).map((i) => STORE_LABEL[i]);
+    if (outs.length) parts.push("not in " + outs.join(" + "));
+  }
+  if (state.issues.length) parts.push(state.issues.map((x) => ISSUE_META[x].l).join("+"));
+  if (state.q) parts.push("“" + state.q + "”");
+  return parts.length ? parts.join(" · ") : "all products";
+}
 
 const ISSUE_META = {
   dup: { l: "DUP", c: "#dc2626", t: "SKU duplicated within a store" },
@@ -196,11 +208,7 @@ const sortVal = (p, k) => ({
 })[k];
 
 function filtered() {
-  let arr = D.products.filter(FILTER_FN[state.filter]);
-  if (state.q) arr = arr.filter((p) =>
-    p.name.toLowerCase().includes(state.q) || (p.sku || "").toLowerCase().includes(state.q) ||
-    p.eans.some((e) => e.includes(state.q)));
-  return arr.slice().sort((a, b) => { const x = sortVal(a, state.sort), y = sortVal(b, state.sort); return (x < y ? -1 : x > y ? 1 : 0) * state.dir; });
+  return D.products.filter(matches).slice().sort((a, b) => { const x = sortVal(a, state.sort), y = sortVal(b, state.sort); return (x < y ? -1 : x > y ? 1 : 0) * state.dir; });
 }
 
 const money = (o) => o && o.price != null ? o.price.toFixed(2) : '<span class="dash">—</span>';
@@ -221,7 +229,7 @@ function render() {
   state.page = Math.min(state.page, pages);
   const slice = arr.slice((state.page - 1) * PAGE, state.page * PAGE);
 
-  $("meta").textContent = `${arr.length} products · page ${state.page}/${pages}`;
+  $("meta").textContent = `${describe()} · ${arr.length} products · page ${state.page}/${pages}`;
   $("rows").innerHTML = slice.map((p) => `<tr>
     <td class="name">${link(p)}</td>
     <td class="sku">${p.sku}</td>
