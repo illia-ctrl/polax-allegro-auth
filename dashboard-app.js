@@ -10,7 +10,7 @@ const CONFIG = {
 const $ = (id) => document.getElementById(id);
 const PAGE = 50;
 let D = null, SM = null;
-let state = { inStores: [], issues: [], q: "", sort: "name", dir: 1, page: 1 };
+let state = { stores: { polax: "any", mlot: "any", sila: "any" }, issues: [], q: "", sort: "name", dir: 1, page: 1 };
 
 // ---------- auth + data loading ----------
 async function fetchData(token) {
@@ -117,9 +117,8 @@ function initUI() {
     STORE_IDS.forEach((id) => {
       const b = document.createElement("button");
       b.className = "store-chip"; b.dataset.store = id;
-      const on = () => state.inStores.includes(id);
-      const paint = () => { b.dataset.on = on() ? "1" : "0"; b.textContent = STORE_LABEL[id] + (on() ? " ✓" : ""); };
-      b.onclick = () => { state.inStores = on() ? state.inStores.filter((x) => x !== id) : [...state.inStores, id]; state.page = 1; paint(); render(); };
+      const paint = () => { const st = state.stores[id]; b.dataset.state = st; b.textContent = STORE_LABEL[id] + (st === "in" ? " ✓" : st === "out" ? " ✗" : ""); };
+      b.onclick = () => { state.stores[id] = STATES[(STATES.indexOf(state.stores[id]) + 1) % 3]; state.page = 1; paint(); render(); };
       paint(); fEl.appendChild(b);
     });
     const sep = document.createElement("span"); sep.className = "sep"; fEl.appendChild(sep);
@@ -133,7 +132,7 @@ function initUI() {
       paint(); fEl.appendChild(b);
     });
     const r = document.createElement("button"); r.className = "reset-btn"; r.textContent = "Reset";
-    r.onclick = () => { state.inStores = []; state.issues = []; state.q = ""; const si = $("search"); if (si) si.value = ""; state.page = 1; buildFilters(); render(); };
+    r.onclick = () => { STORE_IDS.forEach((i) => state.stores[i] = "any"); state.issues = []; state.q = ""; const si = $("search"); if (si) si.value = ""; state.page = 1; buildFilters(); render(); };
     fEl.appendChild(r);
   }
   buildFilters();
@@ -155,7 +154,9 @@ function initUI() {
       Sila_EAN: p.stores.sila?.ean ?? "", Sila_Price: p.stores.sila?.price ?? "", Sila_Stock: p.stores.sila?.stock ?? "",
       Price_Spread: p.spread ?? "",
     }));
-    const slug = ([state.inStores.map((i) => STORE_LABEL[i]).join("-"), state.issues.join("-"), state.q ? "q_" + state.q.replace(/[^a-z0-9]+/gi, "") : ""].filter(Boolean).join("_") || "All").slice(0, 28);
+    const _ins = STORE_IDS.filter((i) => state.stores[i] === "in").map((i) => STORE_LABEL[i]);
+    const _outs = STORE_IDS.filter((i) => state.stores[i] === "out").map((i) => STORE_LABEL[i]);
+    const slug = ([_ins.length ? "in-" + _ins.join("-") : "", _outs.length ? "not-" + _outs.join("-") : "", state.issues.join("-"), state.q ? "q_" + state.q.replace(/[^a-z0-9]+/gi, "") : ""].filter(Boolean).join("_") || "All").slice(0, 28);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), slug.slice(0, 31));
     const stamp = new Date().toISOString().slice(0, 10);
@@ -164,11 +165,10 @@ function initUI() {
 }
 
 const STORE_IDS = ["polax", "mlot", "sila"], STORE_LABEL = { polax: "Polax", mlot: "Mlot", sila: "Sila" };
+const STATES = ["any", "in", "out"];
 const ISSUE_CODES = ["dup", "ean", "name", "pid"];
 function matches(p) {
-  if (state.inStores.length) {
-    for (const id of STORE_IDS) if (state.inStores.includes(id) !== p.present.includes(id)) return false;
-  }
+  for (const id of STORE_IDS) { const st = state.stores[id], pres = p.present.includes(id); if (st === "in" && !pres) return false; if (st === "out" && pres) return false; }
   for (const code of state.issues) if (!p.issues.includes(code)) return false;
   if (state.q) {
     const q = state.q;
@@ -177,12 +177,11 @@ function matches(p) {
   return true;
 }
 function describe() {
+  const ins = STORE_IDS.filter((i) => state.stores[i] === "in").map((i) => STORE_LABEL[i]);
+  const outs = STORE_IDS.filter((i) => state.stores[i] === "out").map((i) => STORE_LABEL[i]);
   const parts = [];
-  if (state.inStores.length) {
-    parts.push("in " + STORE_IDS.filter((i) => state.inStores.includes(i)).map((i) => STORE_LABEL[i]).join(" + "));
-    const outs = STORE_IDS.filter((i) => !state.inStores.includes(i)).map((i) => STORE_LABEL[i]);
-    if (outs.length) parts.push("not in " + outs.join(" + "));
-  }
+  if (ins.length) parts.push("in " + ins.join(" + "));
+  if (outs.length) parts.push("not in " + outs.join(" + "));
   if (state.issues.length) parts.push(state.issues.map((x) => ISSUE_META[x].l).join("+"));
   if (state.q) parts.push("“" + state.q + "”");
   return parts.length ? parts.join(" · ") : "all products";

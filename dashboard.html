@@ -41,9 +41,10 @@
     .filters button { border: 1px solid var(--line); background: transparent; color: inherit; padding: 7px 11px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 12px; }
     .filters button.active { background: #111; color: #fff; border-color: #111; }
     @media (prefers-color-scheme: dark) { .filters button.active { background: #fff; color: #111; border-color: #fff; } }
-    .store-chip[data-on="1"][data-store=polax] { background: #2563eb22; border-color: #2563eb; color: #2563eb; }
-    .store-chip[data-on="1"][data-store=mlot] { background: #ea580c22; border-color: #ea580c; color: #ea580c; }
-    .store-chip[data-on="1"][data-store=sila] { background: #7c3aed22; border-color: #7c3aed; color: #7c3aed; }
+    .store-chip[data-state=in][data-store=polax] { background: #2563eb22; border-color: #2563eb; color: #2563eb; }
+    .store-chip[data-state=in][data-store=mlot] { background: #ea580c22; border-color: #ea580c; color: #ea580c; }
+    .store-chip[data-state=in][data-store=sila] { background: #7c3aed22; border-color: #7c3aed; color: #7c3aed; }
+    .store-chip[data-state=out] { background: #dc262618; border-color: #dc2626; color: #dc2626; text-decoration: line-through; }
     .issue-chip.on { font-weight: 800; border-width: 1.5px; }
     .reset-btn { color: var(--muted); }
     .sep { display: inline-block; width: 1px; height: 20px; background: var(--line); margin: 0 4px; vertical-align: middle; }
@@ -103,7 +104,7 @@
       <b>Total products</b> = distinct SKUs across all three stores. For every store: <b>products present + missing = total</b>. The “Only / Missing / In all 3” filters all count <b>products (SKUs)</b>, never listings.
     </div>
 
-    <p class="hint">Click stores to combine them: selected = <b>must be in</b>, unselected = <b>must NOT be in</b> (e.g. Polax ✓ + Mlot ✓ = in both, not in Sila). Issue chips (DUP/EAN/NAME/PID) narrow further. Click again to deselect; <b>Reset</b> clears all.</p>
+    <p class="hint">Each store cycles <b>– any → ✓ must be in → ✗ must NOT be in</b>. Examples: <b>Mlot ✗</b> = everything missing from Mlot · <b>Polax ✓ + Mlot ✓ + Sila ✗</b> = in both, not in Sila · <b>Polax ✓ + Mlot ✗ + Sila ✗</b> = only Polax. Issue chips (DUP/EAN/NAME/PID) narrow further. <b>Reset</b> clears all.</p>
     <div class="controls"><div class="filters" id="filters"></div></div>
     <div class="controls">
       <input type="search" id="search" placeholder="Search by name, EAN or SKU…" />
