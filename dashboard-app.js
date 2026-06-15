@@ -104,7 +104,7 @@ function initUI() {
 
   const c = D.counts;
   const storeCard = (m, cls) => `<div class="card ${cls}"><h3>${m.name}</h3><div class="big">${m.present}</div>` +
-    `<div class="sub">products · ${m.offers} listings${m.dup ? ` (${m.dup} dup)` : ""} · ${m.missing} missing</div></div>`;
+    `<div class="sub">on marketplace · ${m.active} active · ${m.offers} listings${m.dup ? ` (${m.dup} dup)` : ""} · ${m.missing} missing</div></div>`;
   $("cards").innerHTML =
     storeCard(SM.polax, "polax") + storeCard(SM.mlot, "mlot") + storeCard(SM.sila, "sila") +
     `<div class="card"><h3>Total products</h3><div class="big">${c.total}</div><div class="sub">active in all 3: ${c.all3} · in 2: ${c.in2} · in 1: ${c.in1}${c.in0 ? ` · ${c.in0} inactive-only` : ""}</div></div>`;
