@@ -107,7 +107,7 @@ function initUI() {
     `<div class="sub">products · ${m.offers} listings${m.dup ? ` (${m.dup} dup)` : ""} · ${m.missing} missing</div></div>`;
   $("cards").innerHTML =
     storeCard(SM.polax, "polax") + storeCard(SM.mlot, "mlot") + storeCard(SM.sila, "sila") +
-    `<div class="card"><h3>Total products</h3><div class="big">${c.total}</div><div class="sub">in all 3: ${c.all3} · in 2: ${c.in2} · in 1: ${c.in1}</div></div>`;
+    `<div class="card"><h3>Total products</h3><div class="big">${c.total}</div><div class="sub">active in all 3: ${c.all3} · in 2: ${c.in2} · in 1: ${c.in1}${c.in0 ? ` · ${c.in0} inactive-only` : ""}</div></div>`;
 
   // Multi-select: stores combine as an exact set (in all selected, not in the rest);
   // issue chips add AND constraints. Click again to deselect.
@@ -116,9 +116,9 @@ function initUI() {
     fEl.innerHTML = "";
     STORE_IDS.forEach((id) => {
       const b = document.createElement("button");
-      b.className = "store-chip"; b.dataset.store = id;
-      const paint = () => { const st = state.stores[id]; b.dataset.state = st; b.textContent = STORE_LABEL[id] + (st === "in" ? " ✓" : st === "out" ? " ✗" : ""); };
-      b.onclick = () => { state.stores[id] = STATES[(STATES.indexOf(state.stores[id]) + 1) % 3]; state.page = 1; paint(); render(); };
+      b.className = "store-chip"; b.dataset.store = id; b.style.setProperty("--c", STORE_COLOR[id]);
+      const paint = () => { const st = state.stores[id]; b.dataset.state = st; b.textContent = STORE_LABEL[id] + STATUS_SYM[st]; };
+      b.onclick = () => { state.stores[id] = STATES[(STATES.indexOf(state.stores[id]) + 1) % STATES.length]; state.page = 1; paint(); render(); };
       paint(); fEl.appendChild(b);
     });
     const sep = document.createElement("span"); sep.className = "sep"; fEl.appendChild(sep);
@@ -145,18 +145,17 @@ function initUI() {
   $("dl").addEventListener("click", () => {
     const arr = filtered();
     if (!arr.length) { alert("Nothing to export with the current filters."); return; }
-    const yn = (p, id) => (p.present.includes(id) ? "Y" : "N");
+    const yn = (p, id) => lst(p, id);
     const rows = arr.map((p) => ({
       SKU: p.sku, Name: p.name, Issues: p.issues.join("|"), EAN: p.ean, EAN_mismatch: p.eanMismatch ? "Y" : "",
-      In_Polax: yn(p, "polax"), In_Mlot: yn(p, "mlot"), In_Sila: yn(p, "sila"), Stores: p.count,
+      Status_Polax: yn(p, "polax"), Status_Mlot: yn(p, "mlot"), Status_Sila: yn(p, "sila"), Active_stores: p.count,
       Polax_EAN: p.stores.polax?.ean ?? "", Polax_Price: p.stores.polax?.price ?? "", Polax_Stock: p.stores.polax?.stock ?? "",
       Mlot_EAN: p.stores.mlot?.ean ?? "", Mlot_Price: p.stores.mlot?.price ?? "", Mlot_Stock: p.stores.mlot?.stock ?? "",
       Sila_EAN: p.stores.sila?.ean ?? "", Sila_Price: p.stores.sila?.price ?? "", Sila_Stock: p.stores.sila?.stock ?? "",
       Price_Spread: p.spread ?? "",
     }));
-    const _ins = STORE_IDS.filter((i) => state.stores[i] === "in").map((i) => STORE_LABEL[i]);
-    const _outs = STORE_IDS.filter((i) => state.stores[i] === "out").map((i) => STORE_LABEL[i]);
-    const slug = ([_ins.length ? "in-" + _ins.join("-") : "", _outs.length ? "not-" + _outs.join("-") : "", state.issues.join("-"), state.q ? "q_" + state.q.replace(/[^a-z0-9]+/gi, "") : ""].filter(Boolean).join("_") || "All").slice(0, 28);
+    const _sel = STORE_IDS.filter((i) => state.stores[i] !== "any").map((i) => STORE_LABEL[i] + "-" + state.stores[i]);
+    const slug = ([_sel.join("_"), state.issues.join("-"), state.q ? "q_" + state.q.replace(/[^a-z0-9]+/gi, "") : ""].filter(Boolean).join("_") || "All").slice(0, 28);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), slug.slice(0, 31));
     const stamp = new Date().toISOString().slice(0, 10);
@@ -165,10 +164,15 @@ function initUI() {
 }
 
 const STORE_IDS = ["polax", "mlot", "sila"], STORE_LABEL = { polax: "Polax", mlot: "Mlot", sila: "Sila" };
-const STATES = ["any", "in", "out"];
+const STORE_COLOR = { polax: "#2563eb", mlot: "#ea580c", sila: "#7c3aed" };
+// Per-store listing status filter: any → active → inactive (draft) → ended → none.
+const STATES = ["any", "active", "inactive", "ended", "absent"];
+const STATUS_SYM = { any: "", active: " ✓", inactive: " ◌", ended: " ⊘", absent: " ✗" };
+const STATUS_TIP = { active: "listing active (buyable)", inactive: "listing exists but INACTIVE (draft)", ended: "listing ENDED", absent: "no listing" };
+const lst = (p, id) => (p.listing && p.listing[id]) || "absent";
 const ISSUE_CODES = ["dup", "ean", "name", "pid"];
 function matches(p) {
-  for (const id of STORE_IDS) { const st = state.stores[id], pres = p.present.includes(id); if (st === "in" && !pres) return false; if (st === "out" && pres) return false; }
+  for (const id of STORE_IDS) { const st = state.stores[id]; if (st !== "any" && lst(p, id) !== st) return false; }
   for (const code of state.issues) if (!p.issues.includes(code)) return false;
   if (state.q) {
     const q = state.q;
@@ -177,11 +181,8 @@ function matches(p) {
   return true;
 }
 function describe() {
-  const ins = STORE_IDS.filter((i) => state.stores[i] === "in").map((i) => STORE_LABEL[i]);
-  const outs = STORE_IDS.filter((i) => state.stores[i] === "out").map((i) => STORE_LABEL[i]);
   const parts = [];
-  if (ins.length) parts.push("in " + ins.join(" + "));
-  if (outs.length) parts.push("not in " + outs.join(" + "));
+  for (const id of STORE_IDS) { const st = state.stores[id]; if (st !== "any") parts.push(STORE_LABEL[id] + " " + st); }
   if (state.issues.length) parts.push(state.issues.map((x) => ISSUE_META[x].l).join("+"));
   if (state.q) parts.push("“" + state.q + "”");
   return parts.length ? parts.join(" · ") : "all products";
@@ -212,8 +213,10 @@ function filtered() {
 
 const money = (o) => o && o.price != null ? o.price.toFixed(2) : '<span class="dash">—</span>';
 const stk = (o) => o && o.stock != null ? o.stock : '<span class="dash">—</span>';
-const where = (p) => ["polax", "mlot", "sila"].map((id) =>
-  p.present.includes(id) ? `<span class="on-${id}">${id[0].toUpperCase()}</span>` : `<span class="off">${id[0].toUpperCase()}</span>`).join("");
+const where = (p) => ["polax", "mlot", "sila"].map((id) => {
+  const st = lst(p, id);
+  return `<span class="ind ${st}" style="--c:${STORE_COLOR[id]}" title="${STORE_LABEL[id]}: ${STATUS_TIP[st]}">${id[0].toUpperCase()}</span>`;
+}).join("");
 const eanCell = (p) => p.ean
   ? p.ean + (p.eanMismatch ? ` <span class="warn" title="EANs differ across stores: ${p.eans.join(", ")}">⚠</span>` : "")
   : '<span class="dash">—</span>';

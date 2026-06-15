@@ -41,10 +41,11 @@
     .filters button { border: 1px solid var(--line); background: transparent; color: inherit; padding: 7px 11px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 12px; }
     .filters button.active { background: #111; color: #fff; border-color: #111; }
     @media (prefers-color-scheme: dark) { .filters button.active { background: #fff; color: #111; border-color: #fff; } }
-    .store-chip[data-state=in][data-store=polax] { background: #2563eb22; border-color: #2563eb; color: #2563eb; }
-    .store-chip[data-state=in][data-store=mlot] { background: #ea580c22; border-color: #ea580c; color: #ea580c; }
-    .store-chip[data-state=in][data-store=sila] { background: #7c3aed22; border-color: #7c3aed; color: #7c3aed; }
-    .store-chip[data-state=out] { background: #dc262618; border-color: #dc2626; color: #dc2626; text-decoration: line-through; }
+    .store-chip { --c: #888; }
+    .store-chip[data-state=active] { background: var(--c); border-color: var(--c); color: #fff; }
+    .store-chip[data-state=inactive] { border-color: var(--c); color: var(--c); border-style: dashed; }
+    .store-chip[data-state=ended] { border-color: #9ca3af; color: #6b7280; text-decoration: line-through; }
+    .store-chip[data-state=absent] { border-color: #cbd5e1; color: #9ca3af; }
     .issue-chip.on { font-weight: 800; border-width: 1.5px; }
     .reset-btn { color: var(--muted); }
     .sep { display: inline-block; width: 1px; height: 20px; background: var(--line); margin: 0 4px; vertical-align: middle; }
@@ -61,11 +62,11 @@
     .ean, .sku { font-family: ui-monospace, monospace; color: var(--muted); font-size: 12px; }
     .warn { color: #d97706; cursor: help; }
     .chip { display: inline-block; font-size: 9.5px; font-weight: 800; padding: 1px 5px; border-radius: 5px; margin: 0 2px 2px 0; cursor: help; letter-spacing: .3px; }
-    .where span { display: inline-block; width: 20px; text-align: center; font-size: 11px; font-weight: 700; border-radius: 5px; margin-right: 2px; }
-    .where .on-polax { background: color-mix(in srgb, var(--polax) 20%, transparent); color: var(--polax); }
-    .where .on-mlot { background: color-mix(in srgb, var(--mlot) 20%, transparent); color: var(--mlot); }
-    .where .on-sila { background: color-mix(in srgb, var(--sila) 20%, transparent); color: var(--sila); }
-    .where .off { background: transparent; color: #bbb; border: 1px dashed var(--line); }
+    .where .ind { display: inline-flex; width: 21px; height: 21px; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; border-radius: 5px; margin-right: 2px; border: 1.5px solid transparent; cursor: default; }
+    .where .ind.active { background: var(--c); color: #fff; border-color: var(--c); }
+    .where .ind.inactive { background: transparent; color: var(--c); border-color: var(--c); border-style: dashed; }
+    .where .ind.ended { background: color-mix(in srgb, #9ca3af 16%, transparent); color: #9ca3af; border-color: #d1d5db; text-decoration: line-through; }
+    .where .ind.absent { background: transparent; color: #cbd5e1; border-color: var(--line); }
     a { color: var(--polax); text-decoration: none; }
     .dash { color: #bbb; }
     .pager { display: flex; gap: 8px; align-items: center; justify-content: center; margin: 16px 0; }
@@ -100,11 +101,15 @@
 
     <div class="cards" id="cards"></div>
     <div class="legend">
-      <b>Product</b> = one unique SKU (the match key). <b>Listings</b> = Allegro offers — a store can list the same SKU more than once (those extras are <i>dup</i>).
-      <b>Total products</b> = distinct SKUs across all three stores. For every store: <b>products present + missing = total</b>. The “Only / Missing / In all 3” filters all count <b>products (SKUs)</b>, never listings.
+      <b>Product</b> = one unique SKU (the match key). The <b>Where</b> column shows each store's listing status:
+      <b style="color:#2563eb">✓ active</b> (live, buyable) ·
+      <b style="color:#2563eb">◌ inactive</b> (listing exists but a draft, not live) ·
+      <b style="color:#9ca3af;text-decoration:line-through">⊘ ended</b> ·
+      <b style="color:#9ca3af">✗ none</b> (no listing). Hover any badge for details.
+      <b>Total products</b> counts every SKU with any listing; “active in …” counts only buyable ones.
     </div>
 
-    <p class="hint">Each store cycles <b>– any → ✓ must be in → ✗ must NOT be in</b>. Examples: <b>Mlot ✗</b> = everything missing from Mlot · <b>Polax ✓ + Mlot ✓ + Sila ✗</b> = in both, not in Sila · <b>Polax ✓ + Mlot ✗ + Sila ✗</b> = only Polax. Issue chips (DUP/EAN/NAME/PID) narrow further. <b>Reset</b> clears all.</p>
+    <p class="hint">Each store cycles <b>– any → ✓ active → ◌ inactive → ⊘ ended → ✗ none</b>. Examples: <b>Mlot ✗</b> = no listing on Mlot · <b>Mlot ◌</b> = draft sitting on Mlot · <b>Polax ✓ + Sila ✓ + Mlot ✗</b> = active on both, missing from Mlot. Issue chips (DUP/EAN/NAME/PID) narrow further. <b>Reset</b> clears all.</p>
     <div class="controls"><div class="filters" id="filters"></div></div>
     <div class="controls">
       <input type="search" id="search" placeholder="Search by name, EAN or SKU…" />
