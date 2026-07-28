@@ -261,42 +261,72 @@ function render() {
   pager.appendChild(mk("Next →", state.page + 1, state.page >= pages));
 }
 
-// ---------- BaseLinker tab (additive — reads D.products[i].baselinker + D.baselinkerMeta) ----------
-const blState = { q: "", missingOnly: false, sort: "name", dir: 1, page: 1 };
+// ---------- BaseLinker tab (additive — reads D.products[i].baselinker, D.baselinkerOnly, D.baselinkerMeta) ----------
+// Unified row set = every Allegro product (present or missing in BaseLinker) UNION
+// every BaseLinker catalog entry that never matched any Allegro product ("onlyBL").
+const BL_FILTERS = ["any", "present", "missing", "onlyBL"];
+const BL_FILTER_LABEL = { any: "BaseLinker: any", present: "✓ In BaseLinker", missing: "✗ Missing", onlyBL: "⊘ Only in BaseLinker" };
+const blState = { q: "", filter: "any", sort: "name", dir: 1, page: 1 };
+let blRowsAll = null;
+
+function buildBLRows() {
+  const rows = D.products.map((p) => ({
+    kind: "allegro", name: p.name, sku: p.sku, ean: p.ean, eans: p.eans,
+    present: p.baselinker.present, matchedBy: p.baselinker.matchedBy, allegroProduct: p,
+  }));
+  for (const b of D.baselinkerOnly || []) {
+    rows.push({ kind: "onlyBL", name: b.name, sku: b.sku, ean: b.ean, eans: b.ean ? [b.ean] : [], present: null, matchedBy: null, allegroProduct: null });
+  }
+  return rows;
+}
+
 function initBL() {
   const m = D.baselinkerMeta;
+  blRowsAll = buildBLRows();
   $("blCards").innerHTML =
     `<div class="card"><h3>BaseLinker catalog</h3><div class="big">${m.catalogTotal}</div><div class="sub">total products in Domyślny · snapshot ${new Date(m.fetched).toLocaleString()}</div></div>` +
     `<div class="card"><h3>Matched</h3><div class="big" style="color:#16a34a">${m.matched}</div><div class="sub">Allegro products found in BaseLinker</div></div>` +
+    `<div class="card"><h3>Тільки в BaseLinker</h3><div class="big" style="color:#0891b2">${m.onlyInBaselinker}</div><div class="sub">in BaseLinker catalog, no matching Allegro product</div></div>` +
     `<div class="card"><h3>Missing</h3><div class="big" style="color:#dc2626">${m.missing}</div><div class="sub">Allegro products NOT found in BaseLinker</div></div>`;
 
   $("blSearch").addEventListener("input", (e) => { blState.q = e.target.value.trim().toLowerCase(); blState.page = 1; renderBL(); });
-  $("blMissingOnly").addEventListener("click", () => {
-    blState.missingOnly = !blState.missingOnly;
-    $("blMissingOnly").classList.toggle("active");
-    blState.page = 1; renderBL();
+  const fBtn = $("blFilter");
+  const paintFilter = () => { fBtn.dataset.f = blState.filter; fBtn.textContent = BL_FILTER_LABEL[blState.filter]; };
+  fBtn.addEventListener("click", () => {
+    blState.filter = BL_FILTERS[(BL_FILTERS.indexOf(blState.filter) + 1) % BL_FILTERS.length];
+    blState.page = 1; paintFilter(); renderBL();
   });
+  paintFilter();
   document.querySelectorAll("th[data-blsort]").forEach((th) => th.addEventListener("click", () => {
     const k = th.dataset.blsort; blState.dir = blState.sort === k ? -blState.dir : 1; blState.sort = k; renderBL();
   }));
 }
 
-function blSortVal(p, k) {
-  if (k === "name") return p.name.toLowerCase();
-  if (k === "sku") return p.sku;
-  if (k === "ean") return p.ean;
-  if (k === "present") return p.baselinker.present ? 1 : 0;
+function blSortVal(r, k) {
+  if (k === "name") return r.name.toLowerCase();
+  if (k === "sku") return r.sku || "";
+  if (k === "ean") return r.ean || "";
+  if (k === "present") return r.kind === "onlyBL" ? 2 : r.present ? 1 : 0;
   return "";
 }
 function blFiltered() {
-  return D.products.filter((p) => {
-    if (blState.missingOnly && p.baselinker.present) return false;
+  return blRowsAll.filter((r) => {
+    if (blState.filter === "present" && r.present !== true) return false;
+    if (blState.filter === "missing" && r.present !== false) return false;
+    if (blState.filter === "onlyBL" && r.kind !== "onlyBL") return false;
     if (blState.q) {
       const q = blState.q;
-      if (!(p.name.toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q) || p.eans.some((e) => e.includes(q)))) return false;
+      if (!((r.name || "").toLowerCase().includes(q) || (r.sku || "").toLowerCase().includes(q) || (r.eans || []).some((e) => e.includes(q)))) return false;
     }
     return true;
   }).slice().sort((a, b) => { const x = blSortVal(a, blState.sort), y = blSortVal(b, blState.sort); return (x < y ? -1 : x > y ? 1 : 0) * blState.dir; });
+}
+function blStatusBadge(r) {
+  if (r.kind === "onlyBL") return '<span class="bl-badge onlyBL">Only in BaseLinker</span>';
+  return r.present ? '<span class="bl-badge present">In BaseLinker</span>' : '<span class="bl-badge missing">Missing</span>';
+}
+function blNameCell(r) {
+  return r.kind === "allegro" ? link(r.allegroProduct) : r.name;
 }
 function renderBL() {
   const arr = blFiltered();
@@ -304,13 +334,13 @@ function renderBL() {
   blState.page = Math.min(blState.page, pages);
   const slice = arr.slice((blState.page - 1) * PAGE, blState.page * PAGE);
 
-  $("blMeta").textContent = `${blState.missingOnly ? "missing only" : "all"}${blState.q ? " · “" + blState.q + "”" : ""} · ${arr.length} products · page ${blState.page}/${pages}`;
-  $("blRows").innerHTML = slice.map((p) => `<tr>
-    <td class="name">${link(p)}</td>
-    <td class="sku">${p.sku}</td>
-    <td class="ean">${eanCell(p)}</td>
-    <td>${p.baselinker.present ? '<span class="bl-badge present">In BaseLinker</span>' : '<span class="bl-badge missing">Missing</span>'}</td>
-    <td class="sku">${p.baselinker.matchedBy || '<span class="dash">—</span>'}</td>
+  $("blMeta").textContent = `${BL_FILTER_LABEL[blState.filter]}${blState.q ? " · “" + blState.q + "”" : ""} · ${arr.length} products · page ${blState.page}/${pages}`;
+  $("blRows").innerHTML = slice.map((r) => `<tr>
+    <td class="name">${blNameCell(r)}</td>
+    <td class="sku">${r.sku || '<span class="dash">—</span>'}</td>
+    <td class="ean">${r.ean || '<span class="dash">—</span>'}</td>
+    <td>${blStatusBadge(r)}</td>
+    <td class="sku">${r.matchedBy || '<span class="dash">—</span>'}</td>
   </tr>`).join("");
 
   const pager = $("blPager");

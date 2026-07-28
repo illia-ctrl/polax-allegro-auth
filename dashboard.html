@@ -78,6 +78,11 @@
     .bl-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
     .bl-badge.present { background: color-mix(in srgb,#16a34a 18%,transparent); color: #16a34a; }
     .bl-badge.missing { background: color-mix(in srgb,#dc2626 18%,transparent); color: #dc2626; }
+    .bl-badge.onlyBL { background: color-mix(in srgb,#0891b2 18%,transparent); color: #0891b2; }
+    .bl-filter { border: 1px solid var(--line); background: transparent; color: inherit; padding: 7px 11px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 12px; }
+    .bl-filter[data-f=present] { background: color-mix(in srgb,#16a34a 18%,transparent); color: #16a34a; border-color: #16a34a; }
+    .bl-filter[data-f=missing] { background: color-mix(in srgb,#dc2626 18%,transparent); color: #dc2626; border-color: #dc2626; }
+    .bl-filter[data-f=onlyBL] { background: color-mix(in srgb,#0891b2 18%,transparent); color: #0891b2; border-color: #0891b2; }
   </style>
 </head>
 <body>
@@ -157,11 +162,11 @@
     <div id="viewBL" class="hidden">
       <div class="cards" id="blCards"></div>
       <div class="legend" id="blLegend">
-        Matches each Allegro product to the BaseLinker catalog by <b>SKU → EAN → name</b> (same layered logic as the CLI diff script). <span class="bl-badge present">In BaseLinker</span> found in the catalog · <span class="bl-badge missing">Missing</span> not found under any key.
+        Matches each Allegro product to the BaseLinker catalog by <b>SKU → EAN → name</b> (same layered logic as the CLI diff script). <span class="bl-badge present">In BaseLinker</span> found in the catalog · <span class="bl-badge missing">Missing</span> not found under any key · <span class="bl-badge onlyBL">Only in BaseLinker</span> BaseLinker catalog entries with no matching Allegro product (other channels, discontinued, etc). Click the filter button to cycle <b>any → in BaseLinker → missing → only in BaseLinker</b>.
       </div>
       <div class="controls">
         <input type="search" id="blSearch" placeholder="Search by name, EAN or SKU…" />
-        <button class="filters" id="blMissingOnly" style="border:1px solid var(--line);background:transparent;color:inherit;padding:7px 11px;border-radius:8px;cursor:pointer;font-weight:600;font-size:12px">Show missing only</button>
+        <button class="bl-filter" id="blFilter"></button>
       </div>
       <div class="meta" id="blMeta"></div>
       <table>
