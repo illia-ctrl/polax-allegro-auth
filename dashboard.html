@@ -160,6 +160,10 @@
 
     <!-- VIEW: BaseLinker presence (new tab) -->
     <div id="viewBL" class="hidden">
+      <div class="topbar" style="margin-bottom:8px">
+        <div></div>
+        <button class="lock" id="blRefresh" title="Re-pull the BaseLinker catalog and re-match against Allegro (manual only, ~30–60s)">🔄 Refresh BaseLinker</button>
+      </div>
       <div class="cards" id="blCards"></div>
       <div class="legend" id="blLegend">
         Matches each Allegro product to the BaseLinker catalog by <b>SKU → EAN → name</b> (same layered logic as the CLI diff script). <span class="bl-badge present">In BaseLinker</span> found in the catalog · <span class="bl-badge missing">Missing</span> not found under any key · <span class="bl-badge onlyBL">Only in BaseLinker</span> BaseLinker catalog entries with no matching Allegro product (other channels, discontinued, etc). Click the filter button to cycle <b>any → in BaseLinker → missing → only in BaseLinker</b>.
@@ -167,6 +171,7 @@
       <div class="controls">
         <input type="search" id="blSearch" placeholder="Search by name, EAN or SKU…" />
         <button class="bl-filter" id="blFilter"></button>
+        <button class="dl" id="blDl" title="Export the currently filtered list to Excel">⬇ Download Excel (filtered)</button>
       </div>
       <div class="meta" id="blMeta"></div>
       <table>

@@ -56,39 +56,44 @@ $("lock").addEventListener("click", () => {
   location.reload();
 });
 
-// "Refresh now" — trigger the GitHub Action that re-pulls all three stores,
-// then poll until the data changes and reload. Needs a Contents: write token.
-const REFRESH_EVENT = "refresh-dashboard";
+// Generic "refresh" trigger — POSTs a repository_dispatch event to run a GitHub
+// Action, then polls hosted-dashboard/data.json until a watermark field changes,
+// and reloads. Needs a Contents: write token. Shared by the "Refresh now" (Allegro)
+// and "Refresh BaseLinker" buttons below — both are MANUAL ONLY, no cron/schedule.
 const setStatus = (msg) => { const el = $("status"); if (el) el.textContent = msg; };
-$("refresh").addEventListener("click", async () => {
-  const token = localStorage.getItem(CONFIG.tokenKey) || sessionStorage.getItem(CONFIG.tokenKey);
-  if (!token) { setStatus("Load with a token first."); return; }
-  const btn = $("refresh");
-  btn.disabled = true;
-  const before = D ? D.generated : null;
-  setStatus("Starting refresh…");
-  try {
-    const r = await fetch(`https://api.github.com/repos/${CONFIG.repo}/dispatches`, {
-      method: "POST",
-      headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "Content-Type": "application/json", "X-GitHub-Api-Version": "2022-11-28" },
-      body: JSON.stringify({ event_type: REFRESH_EVENT }),
-    });
-    if (r.status === 403 || r.status === 404) { setStatus("This token can't trigger refresh — it needs Contents: Read and write."); btn.disabled = false; return; }
-    if (r.status !== 204) { setStatus("Could not start refresh (HTTP " + r.status + ")."); btn.disabled = false; return; }
-  } catch (e) { setStatus("Network error: " + e.message); btn.disabled = false; return; }
-
-  setStatus("Refreshing from Allegro… ~2–3 min. The page reloads automatically when ready.");
-  const start = Date.now();
-  const poll = async () => {
+function wireRefreshButton(btnId, eventType, getWatermark, runningMsg) {
+  $(btnId).addEventListener("click", async () => {
+    const token = localStorage.getItem(CONFIG.tokenKey) || sessionStorage.getItem(CONFIG.tokenKey);
+    if (!token) { setStatus("Load with a token first."); return; }
+    const btn = $(btnId);
+    btn.disabled = true;
+    const before = D ? getWatermark(D) : null;
+    setStatus("Starting refresh…");
     try {
-      const fresh = await fetchData(token);
-      if (fresh.generated && fresh.generated !== before) { setStatus("Updated ✓ reloading…"); location.reload(); return; }
-    } catch { /* keep waiting */ }
-    if (Date.now() - start > 6 * 60 * 1000) { setStatus("Still running — try reloading in a minute."); btn.disabled = false; return; }
-    setTimeout(poll, 20000);
-  };
-  setTimeout(poll, 30000);
-});
+      const r = await fetch(`https://api.github.com/repos/${CONFIG.repo}/dispatches`, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "Content-Type": "application/json", "X-GitHub-Api-Version": "2022-11-28" },
+        body: JSON.stringify({ event_type: eventType }),
+      });
+      if (r.status === 403 || r.status === 404) { setStatus("This token can't trigger refresh — it needs Contents: Read and write."); btn.disabled = false; return; }
+      if (r.status !== 204) { setStatus("Could not start refresh (HTTP " + r.status + ")."); btn.disabled = false; return; }
+    } catch (e) { setStatus("Network error: " + e.message); btn.disabled = false; return; }
+
+    setStatus(runningMsg);
+    const start = Date.now();
+    const poll = async () => {
+      try {
+        const fresh = await fetchData(token);
+        if (getWatermark(fresh) && getWatermark(fresh) !== before) { setStatus("Updated ✓ reloading…"); location.reload(); return; }
+      } catch { /* keep waiting */ }
+      if (Date.now() - start > 6 * 60 * 1000) { setStatus("Still running — try reloading in a minute."); btn.disabled = false; return; }
+      setTimeout(poll, 20000);
+    };
+    setTimeout(poll, 30000);
+  });
+}
+wireRefreshButton("refresh", "refresh-dashboard", (d) => d.generated, "Refreshing from Allegro… ~2–3 min. The page reloads automatically when ready.");
+wireRefreshButton("blRefresh", "refresh-baselinker", (d) => d.baselinkerMeta && d.baselinkerMeta.fetched, "Refreshing BaseLinker catalog… ~30–60s. The page reloads automatically when ready.");
 
 // auto-load if a token is already stored
 (async function boot() {
@@ -301,6 +306,21 @@ function initBL() {
   document.querySelectorAll("th[data-blsort]").forEach((th) => th.addEventListener("click", () => {
     const k = th.dataset.blsort; blState.dir = blState.sort === k ? -blState.dir : 1; blState.sort = k; renderBL();
   }));
+
+  $("blDl").addEventListener("click", () => {
+    const arr = blFiltered();
+    if (!arr.length) { alert("Nothing to export with the current filters."); return; }
+    const rows = arr.map((r) => ({
+      SKU: r.sku, Name: r.name, EAN: r.ean || "",
+      BaseLinker: r.kind === "onlyBL" ? "Only in BaseLinker" : r.present ? "In BaseLinker" : "Missing",
+      Matched_by: r.matchedBy || "", Stock: r.stock ?? "",
+    }));
+    const slug = ([blState.filter !== "any" ? "BL_" + blState.filter : "", blState.q ? "q_" + blState.q.replace(/[^a-z0-9]+/gi, "") : ""].filter(Boolean).join("_") || "All").slice(0, 28);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), slug.slice(0, 31));
+    const stamp = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `BaseLinker-${slug}-${stamp}.xlsx`);
+  });
 }
 
 function blSortVal(r, k) {
