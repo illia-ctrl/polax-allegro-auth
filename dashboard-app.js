@@ -273,9 +273,10 @@ function buildBLRows() {
   const rows = D.products.map((p) => ({
     kind: "allegro", name: p.name, sku: p.sku, ean: p.ean, eans: p.eans,
     present: p.baselinker.present, matchedBy: p.baselinker.matchedBy, allegroProduct: p,
+    stock: p.baselinker.present ? p.baselinker.blStock : null,
   }));
   for (const b of D.baselinkerOnly || []) {
-    rows.push({ kind: "onlyBL", name: b.name, sku: b.sku, ean: b.ean, eans: b.ean ? [b.ean] : [], present: null, matchedBy: null, allegroProduct: null });
+    rows.push({ kind: "onlyBL", name: b.name, sku: b.sku, ean: b.ean, eans: b.ean ? [b.ean] : [], present: null, matchedBy: null, allegroProduct: null, stock: b.stock });
   }
   return rows;
 }
@@ -307,6 +308,7 @@ function blSortVal(r, k) {
   if (k === "sku") return r.sku || "";
   if (k === "ean") return r.ean || "";
   if (k === "present") return r.kind === "onlyBL" ? 2 : r.present ? 1 : 0;
+  if (k === "stock") return r.stock ?? -1;
   return "";
 }
 function blFiltered() {
@@ -340,6 +342,7 @@ function renderBL() {
     <td class="sku">${r.sku || '<span class="dash">—</span>'}</td>
     <td class="ean">${r.ean || '<span class="dash">—</span>'}</td>
     <td>${blStatusBadge(r)}</td>
+    <td class="num">${r.stock == null ? '<span class="dash">—</span>' : r.stock}</td>
     <td class="sku">${r.matchedBy || '<span class="dash">—</span>'}</td>
   </tr>`).join("");
 
