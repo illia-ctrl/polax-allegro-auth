@@ -71,6 +71,13 @@
     .dash { color: #bbb; }
     .pager { display: flex; gap: 8px; align-items: center; justify-content: center; margin: 16px 0; }
     .pager button { padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: inherit; cursor: pointer; }
+
+    .tabs { display: flex; gap: 18px; margin: 4px 0 16px; border-bottom: 1px solid var(--line); }
+    .tabs button { border: 0; background: transparent; color: var(--muted); padding: 9px 2px; cursor: pointer; font-size: 14px; font-weight: 600; border-bottom: 2px solid transparent; }
+    .tabs button.active { color: inherit; border-bottom-color: #16a34a; }
+    .bl-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+    .bl-badge.present { background: color-mix(in srgb,#16a34a 18%,transparent); color: #16a34a; }
+    .bl-badge.missing { background: color-mix(in srgb,#dc2626 18%,transparent); color: #dc2626; }
   </style>
 </head>
 <body>
@@ -99,44 +106,78 @@
     <div class="gen" id="gen"></div>
     <div class="gen" id="status" style="min-height:16px"></div>
 
-    <div class="cards" id="cards"></div>
-    <div class="legend">
-      <b>Product</b> = one unique SKU (the match key). The <b>Where</b> column shows each store's listing status:
-      <b style="color:#2563eb">✓ active</b> (live, buyable) ·
-      <b style="color:#2563eb">◌ inactive</b> (listing exists but a draft, not live) ·
-      <b style="color:#9ca3af;text-decoration:line-through">⊘ ended</b> ·
-      <b style="color:#9ca3af">✗ none</b> (no listing). Hover any badge for details.
-      <b>Total products</b> counts every SKU with any listing; “active in …” counts only buyable ones.
+    <div class="tabs" id="tabs">
+      <button id="tabBtn3way" class="active">3 магазини</button>
+      <button id="tabBtnBL">BaseLinker</button>
     </div>
 
-    <p class="hint">Each store cycles <b>– any → ✓ active → ◌ inactive → ⊘ ended → ✗ none</b>. Examples: <b>Mlot ✗</b> = no listing on Mlot · <b>Mlot ◌</b> = draft sitting on Mlot · <b>Polax ✓ + Sila ✓ + Mlot ✗</b> = active on both, missing from Mlot. Issue chips (DUP/EAN/NAME/PID) narrow further. <b>Reset</b> clears all.</p>
-    <div class="controls"><div class="filters" id="filters"></div></div>
-    <div class="controls">
-      <input type="search" id="search" placeholder="Search by name, EAN or SKU…" />
-      <button class="dl" id="dl" title="Export the currently filtered list to Excel">⬇ Download Excel (filtered)</button>
-    </div>
-    <div class="meta" id="meta"></div>
+    <!-- VIEW: 3-store comparison (unchanged from before the BaseLinker tab was added) -->
+    <div id="view3way">
+      <div class="cards" id="cards"></div>
+      <div class="legend">
+        <b>Product</b> = one unique SKU (the match key). The <b>Where</b> column shows each store's listing status:
+        <b style="color:#2563eb">✓ active</b> (live, buyable) ·
+        <b style="color:#2563eb">◌ inactive</b> (listing exists but a draft, not live) ·
+        <b style="color:#9ca3af;text-decoration:line-through">⊘ ended</b> ·
+        <b style="color:#9ca3af">✗ none</b> (no listing). Hover any badge for details.
+        <b>Total products</b> counts every SKU with any listing; “active in …” counts only buyable ones.
+      </div>
 
-    <table>
-      <thead>
-        <tr>
-          <th data-sort="name" class="name">Product</th>
-          <th data-sort="sku">SKU</th>
-          <th data-sort="issues">⚠</th>
-          <th data-sort="ean">EAN</th>
-          <th data-sort="count">Where</th>
-          <th data-sort="polaxPrice" class="num">Polax zł</th>
-          <th data-sort="polaxStock" class="num">Polax stk</th>
-          <th data-sort="mlotPrice" class="num">Mlot zł</th>
-          <th data-sort="mlotStock" class="num">Mlot stk</th>
-          <th data-sort="silaPrice" class="num">Sila zł</th>
-          <th data-sort="silaStock" class="num">Sila stk</th>
-          <th data-sort="spread" class="num">Spread</th>
-        </tr>
-      </thead>
-      <tbody id="rows"></tbody>
-    </table>
-    <div class="pager" id="pager"></div>
+      <p class="hint">Each store cycles <b>– any → ✓ active → ◌ inactive → ⊘ ended → ✗ none</b>. Examples: <b>Mlot ✗</b> = no listing on Mlot · <b>Mlot ◌</b> = draft sitting on Mlot · <b>Polax ✓ + Sila ✓ + Mlot ✗</b> = active on both, missing from Mlot. Issue chips (DUP/EAN/NAME/PID) narrow further. <b>Reset</b> clears all.</p>
+      <div class="controls"><div class="filters" id="filters"></div></div>
+      <div class="controls">
+        <input type="search" id="search" placeholder="Search by name, EAN or SKU…" />
+        <button class="dl" id="dl" title="Export the currently filtered list to Excel">⬇ Download Excel (filtered)</button>
+      </div>
+      <div class="meta" id="meta"></div>
+
+      <table>
+        <thead>
+          <tr>
+            <th data-sort="name" class="name">Product</th>
+            <th data-sort="sku">SKU</th>
+            <th data-sort="issues">⚠</th>
+            <th data-sort="ean">EAN</th>
+            <th data-sort="count">Where</th>
+            <th data-sort="polaxPrice" class="num">Polax zł</th>
+            <th data-sort="polaxStock" class="num">Polax stk</th>
+            <th data-sort="mlotPrice" class="num">Mlot zł</th>
+            <th data-sort="mlotStock" class="num">Mlot stk</th>
+            <th data-sort="silaPrice" class="num">Sila zł</th>
+            <th data-sort="silaStock" class="num">Sila stk</th>
+            <th data-sort="spread" class="num">Spread</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="pager" id="pager"></div>
+    </div>
+
+    <!-- VIEW: BaseLinker presence (new tab) -->
+    <div id="viewBL" class="hidden">
+      <div class="cards" id="blCards"></div>
+      <div class="legend" id="blLegend">
+        Matches each Allegro product to the BaseLinker catalog by <b>SKU → EAN → name</b> (same layered logic as the CLI diff script). <span class="bl-badge present">In BaseLinker</span> found in the catalog · <span class="bl-badge missing">Missing</span> not found under any key.
+      </div>
+      <div class="controls">
+        <input type="search" id="blSearch" placeholder="Search by name, EAN or SKU…" />
+        <button class="filters" id="blMissingOnly" style="border:1px solid var(--line);background:transparent;color:inherit;padding:7px 11px;border-radius:8px;cursor:pointer;font-weight:600;font-size:12px">Show missing only</button>
+      </div>
+      <div class="meta" id="blMeta"></div>
+      <table>
+        <thead>
+          <tr>
+            <th data-blsort="name" class="name">Product</th>
+            <th data-blsort="sku">SKU</th>
+            <th data-blsort="ean">EAN</th>
+            <th data-blsort="present">BaseLinker</th>
+            <th>Matched by</th>
+          </tr>
+        </thead>
+        <tbody id="blRows"></tbody>
+      </table>
+      <div class="pager" id="blPager"></div>
+    </div>
   </div>
 
   <script src="xlsx.full.min.js"></script>

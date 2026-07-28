@@ -98,9 +98,18 @@ $("refresh").addEventListener("click", async () => {
   catch { /* show login */ }
 })();
 
+// ---------- tabs ----------
+function initTabs() {
+  const btn3 = $("tabBtn3way"), btnBL = $("tabBtnBL"), v3 = $("view3way"), vBL = $("viewBL");
+  btn3.onclick = () => { btn3.classList.add("active"); btnBL.classList.remove("active"); v3.classList.remove("hidden"); vBL.classList.add("hidden"); };
+  btnBL.onclick = () => { btnBL.classList.add("active"); btn3.classList.remove("active"); vBL.classList.remove("hidden"); v3.classList.add("hidden"); renderBL(); };
+}
+
 // ---------- UI (same view as the local dashboard) ----------
 function initUI() {
   $("gen").textContent = "Loaded " + new Date(D.generated).toLocaleString() + " · from " + CONFIG.repo + " · matched by " + (D.matchKey || "SKU") + " (EAN shown for reference)";
+  initTabs();
+  if (D.baselinkerMeta) initBL();
 
   const c = D.counts;
   const storeCard = (m, cls) => `<div class="card ${cls}"><h3>${m.name}</h3><div class="big">${m.present}</div>` +
@@ -250,4 +259,64 @@ function render() {
   pager.appendChild(mk("← Prev", state.page - 1, state.page <= 1));
   const lbl = document.createElement("span"); lbl.textContent = ` ${state.page} / ${pages} `; pager.appendChild(lbl);
   pager.appendChild(mk("Next →", state.page + 1, state.page >= pages));
+}
+
+// ---------- BaseLinker tab (additive — reads D.products[i].baselinker + D.baselinkerMeta) ----------
+const blState = { q: "", missingOnly: false, sort: "name", dir: 1, page: 1 };
+function initBL() {
+  const m = D.baselinkerMeta;
+  $("blCards").innerHTML =
+    `<div class="card"><h3>BaseLinker catalog</h3><div class="big">${m.catalogTotal}</div><div class="sub">total products in Domyślny · snapshot ${new Date(m.fetched).toLocaleString()}</div></div>` +
+    `<div class="card"><h3>Matched</h3><div class="big" style="color:#16a34a">${m.matched}</div><div class="sub">Allegro products found in BaseLinker</div></div>` +
+    `<div class="card"><h3>Missing</h3><div class="big" style="color:#dc2626">${m.missing}</div><div class="sub">Allegro products NOT found in BaseLinker</div></div>`;
+
+  $("blSearch").addEventListener("input", (e) => { blState.q = e.target.value.trim().toLowerCase(); blState.page = 1; renderBL(); });
+  $("blMissingOnly").addEventListener("click", () => {
+    blState.missingOnly = !blState.missingOnly;
+    $("blMissingOnly").classList.toggle("active");
+    blState.page = 1; renderBL();
+  });
+  document.querySelectorAll("th[data-blsort]").forEach((th) => th.addEventListener("click", () => {
+    const k = th.dataset.blsort; blState.dir = blState.sort === k ? -blState.dir : 1; blState.sort = k; renderBL();
+  }));
+}
+
+function blSortVal(p, k) {
+  if (k === "name") return p.name.toLowerCase();
+  if (k === "sku") return p.sku;
+  if (k === "ean") return p.ean;
+  if (k === "present") return p.baselinker.present ? 1 : 0;
+  return "";
+}
+function blFiltered() {
+  return D.products.filter((p) => {
+    if (blState.missingOnly && p.baselinker.present) return false;
+    if (blState.q) {
+      const q = blState.q;
+      if (!(p.name.toLowerCase().includes(q) || (p.sku || "").toLowerCase().includes(q) || p.eans.some((e) => e.includes(q)))) return false;
+    }
+    return true;
+  }).slice().sort((a, b) => { const x = blSortVal(a, blState.sort), y = blSortVal(b, blState.sort); return (x < y ? -1 : x > y ? 1 : 0) * blState.dir; });
+}
+function renderBL() {
+  const arr = blFiltered();
+  const pages = Math.max(1, Math.ceil(arr.length / PAGE));
+  blState.page = Math.min(blState.page, pages);
+  const slice = arr.slice((blState.page - 1) * PAGE, blState.page * PAGE);
+
+  $("blMeta").textContent = `${blState.missingOnly ? "missing only" : "all"}${blState.q ? " · “" + blState.q + "”" : ""} · ${arr.length} products · page ${blState.page}/${pages}`;
+  $("blRows").innerHTML = slice.map((p) => `<tr>
+    <td class="name">${link(p)}</td>
+    <td class="sku">${p.sku}</td>
+    <td class="ean">${eanCell(p)}</td>
+    <td>${p.baselinker.present ? '<span class="bl-badge present">In BaseLinker</span>' : '<span class="bl-badge missing">Missing</span>'}</td>
+    <td class="sku">${p.baselinker.matchedBy || '<span class="dash">—</span>'}</td>
+  </tr>`).join("");
+
+  const pager = $("blPager");
+  pager.innerHTML = "";
+  const mk = (txt, pg, dis) => { const b = document.createElement("button"); b.textContent = txt; b.disabled = dis; b.onclick = () => { blState.page = pg; renderBL(); window.scrollTo(0, 0); }; return b; };
+  pager.appendChild(mk("← Prev", blState.page - 1, blState.page <= 1));
+  const lbl = document.createElement("span"); lbl.textContent = ` ${blState.page} / ${pages} `; pager.appendChild(lbl);
+  pager.appendChild(mk("Next →", blState.page + 1, blState.page >= pages));
 }
