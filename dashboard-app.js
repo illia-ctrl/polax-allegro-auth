@@ -92,7 +92,8 @@ function wireRefreshButton(btnId, eventType, getWatermark, runningMsg) {
     setTimeout(poll, 30000);
   });
 }
-wireRefreshButton("refresh", "refresh-dashboard", (d) => d.generated, "Refreshing from Allegro… ~2–3 min. The page reloads automatically when ready.");
+wireRefreshButton("refresh", "refresh-all", (d) => d.generated, "Refreshing Allegro + BaseLinker… ~3–4 min. The page reloads automatically when ready.");
+wireRefreshButton("allegroRefresh", "refresh-dashboard", (d) => d.generated, "Refreshing from Allegro… ~2–3 min. The page reloads automatically when ready.");
 wireRefreshButton("blRefresh", "refresh-baselinker", (d) => d.baselinkerMeta && d.baselinkerMeta.fetched, "Refreshing BaseLinker catalog… ~30–60s. The page reloads automatically when ready.");
 
 // auto-load if a token is already stored
@@ -105,12 +106,13 @@ wireRefreshButton("blRefresh", "refresh-baselinker", (d) => d.baselinkerMeta && 
 
 // ---------- tabs ----------
 function initTabs() {
-  const btn3 = $("tabBtn3way"), btnBL = $("tabBtnBL"), v3 = $("view3way"), vBL = $("viewBL"), blBtn = $("blRefresh");
-  // blRefresh lives in the tab bar (above the divider) and is shorter than the tab
-  // buttons, so toggling it never changes the bar height — the content below the
-  // divider stays put when switching tabs.
-  btn3.onclick = () => { btn3.classList.add("active"); btnBL.classList.remove("active"); v3.classList.remove("hidden"); vBL.classList.add("hidden"); blBtn.classList.add("hidden"); };
-  btnBL.onclick = () => { btnBL.classList.add("active"); btn3.classList.remove("active"); vBL.classList.remove("hidden"); v3.classList.add("hidden"); blBtn.classList.remove("hidden"); renderBL(); };
+  const btn3 = $("tabBtn3way"), btnBL = $("tabBtnBL"), v3 = $("view3way"), vBL = $("viewBL");
+  const aBtn = $("allegroRefresh"), blBtn = $("blRefresh");
+  // Each tab's refresh button lives in the tab bar (above the divider) and is
+  // shorter than the tab buttons, so swapping them never changes the bar height —
+  // the content below the divider stays put when switching tabs.
+  btn3.onclick = () => { btn3.classList.add("active"); btnBL.classList.remove("active"); v3.classList.remove("hidden"); vBL.classList.add("hidden"); aBtn.classList.remove("hidden"); blBtn.classList.add("hidden"); };
+  btnBL.onclick = () => { btnBL.classList.add("active"); btn3.classList.remove("active"); vBL.classList.remove("hidden"); v3.classList.add("hidden"); blBtn.classList.remove("hidden"); aBtn.classList.add("hidden"); renderBL(); };
 }
 
 // ---------- UI (same view as the local dashboard) ----------

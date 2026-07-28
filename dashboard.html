@@ -75,9 +75,10 @@
     .tabs { display: flex; gap: 18px; align-items: center; margin: 4px 0 12px; border-bottom: 1px solid var(--line); }
     .tabs button { border: 0; background: transparent; color: var(--muted); padding: 9px 2px; cursor: pointer; font-size: 14px; font-weight: 600; border-bottom: 2px solid transparent; }
     .tabs button.active { color: inherit; border-bottom-color: #16a34a; }
-    /* per-tab action button, right-aligned inside the tab bar (above the divider)
-       so the content below the divider starts at the same Y on every tab */
-    #blRefresh { margin-left: auto; margin-bottom: 5px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 400; color: inherit; }
+    /* per-tab action button, right-aligned inside the tab bar (above the divider).
+       Shorter than the tab buttons, so showing/hiding one never changes the bar
+       height — content below the divider starts at the same Y on every tab. */
+    .tabs .tab-action { margin-left: auto; margin-bottom: 5px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 400; color: inherit; }
     .bl-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
     .bl-badge.present { background: color-mix(in srgb,#16a34a 18%,transparent); color: #16a34a; }
     .bl-badge.missing { background: color-mix(in srgb,#dc2626 18%,transparent); color: #dc2626; }
@@ -107,7 +108,7 @@
     <div class="topbar">
       <h1>Allegro stores — 3-way comparison <span class="badge" style="background:color-mix(in srgb,#16a34a 18%,transparent);color:#16a34a">matched by SKU · private</span></h1>
       <div style="display:flex;gap:8px">
-        <button class="lock" id="refresh" title="Re-pull all three stores from Allegro (takes ~2–3 min)">🔄 Refresh now</button>
+        <button class="lock" id="refresh" title="Re-pull everything — all three Allegro stores AND the BaseLinker catalog (takes ~3–4 min)">🔄 Refresh All</button>
         <button class="lock" id="lock">🔒 Lock / clear token</button>
       </div>
     </div>
@@ -117,7 +118,8 @@
     <div class="tabs" id="tabs">
       <button id="tabBtn3way" class="active">Allegro</button>
       <button id="tabBtnBL">BaseLinker</button>
-      <button class="hidden" id="blRefresh" title="Re-pull the BaseLinker catalog and re-match against Allegro (manual only, ~30–60s)">🔄 Refresh BaseLinker</button>
+      <button class="tab-action" id="allegroRefresh" title="Re-pull all three Allegro stores (manual only, ~2–3 min)">🔄 Refresh Allegro</button>
+      <button class="tab-action hidden" id="blRefresh" title="Re-pull the BaseLinker catalog and re-match against Allegro (manual only, ~30–60s)">🔄 Refresh BaseLinker</button>
     </div>
 
     <!-- VIEW: 3-store comparison (unchanged from before the BaseLinker tab was added) -->
