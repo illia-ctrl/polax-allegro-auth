@@ -105,9 +105,12 @@ wireRefreshButton("blRefresh", "refresh-baselinker", (d) => d.baselinkerMeta && 
 
 // ---------- tabs ----------
 function initTabs() {
-  const btn3 = $("tabBtn3way"), btnBL = $("tabBtnBL"), v3 = $("view3way"), vBL = $("viewBL");
-  btn3.onclick = () => { btn3.classList.add("active"); btnBL.classList.remove("active"); v3.classList.remove("hidden"); vBL.classList.add("hidden"); };
-  btnBL.onclick = () => { btnBL.classList.add("active"); btn3.classList.remove("active"); vBL.classList.remove("hidden"); v3.classList.add("hidden"); renderBL(); };
+  const btn3 = $("tabBtn3way"), btnBL = $("tabBtnBL"), v3 = $("view3way"), vBL = $("viewBL"), blBtn = $("blRefresh");
+  // blRefresh lives in the tab bar (above the divider) and is shorter than the tab
+  // buttons, so toggling it never changes the bar height — the content below the
+  // divider stays put when switching tabs.
+  btn3.onclick = () => { btn3.classList.add("active"); btnBL.classList.remove("active"); v3.classList.remove("hidden"); vBL.classList.add("hidden"); blBtn.classList.add("hidden"); };
+  btnBL.onclick = () => { btnBL.classList.add("active"); btn3.classList.remove("active"); vBL.classList.remove("hidden"); v3.classList.add("hidden"); blBtn.classList.remove("hidden"); renderBL(); };
 }
 
 // ---------- UI (same view as the local dashboard) ----------
